@@ -1,0 +1,57 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: statushub_app
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: StatusHub
+      APP_ENV: local
+      APP_KEY: base64:L0ZVeQ9bOhffKfqjWg9UZyclca+dU63D2/2q6AP8SEM=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: statushub
+      DB_USERNAME: statushub_user
+      DB_PASSWORD: statushub_pass
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: log
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./storage:/var/www/storage
+
+  db:
+    image: mysql:8.0
+    container_name: statushub_db
+    environment:
+      MYSQL_DATABASE: statushub
+      MYSQL_USER: statushub_user
+      MYSQL_PASSWORD: statushub_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  swagger:
+      image: swaggerapi/swagger-ui
+      container_name: statushub_swagger
+      ports:
+        - "8080:8080"
+      environment:
+        SWAGGER_JSON: /app/api-docs.json
+      volumes:
+        - ./public/api-docs.json:/app/api-docs.json

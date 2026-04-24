@@ -1,0 +1,519 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "StatusHub API",
+    "version": "1.0.0",
+    "description": "API REST para monitorización de servicios IT en tiempo real.",
+    "contact": {
+      "email": "admin@statushub.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Servidor local (Docker)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sanctum": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Token",
+        "description": "Introduce el token obtenido en /api/auth/login"
+      }
+    }
+  },
+  "paths": {
+    "/api/status": {
+      "get": {
+        "tags": ["Estado"],
+        "summary": "Estado global del sistema",
+        "description": "Devuelve el estado global del sistema, el número de incidentes activos y la lista de todos los servicios.",
+        "responses": {
+          "200": {
+            "description": "Estado del sistema obtenido correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "global_status": { "type": "string", "example": "operational" },
+                    "active_incidents": { "type": "integer", "example": 2 },
+                    "services": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer", "example": 1 },
+                          "name": { "type": "string", "example": "API de Usuarios" },
+                          "slug": { "type": "string", "example": "api-usuarios" },
+                          "status": { "type": "string", "example": "operational" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Iniciar sesión",
+        "description": "Autentica al usuario y devuelve un token de acceso.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "admin@statushub.com" },
+                  "password": { "type": "string", "example": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer", "example": 1 },
+                        "name": { "type": "string", "example": "Admin" },
+                        "email": { "type": "string", "example": "admin@statushub.com" },
+                        "role": { "type": "string", "example": "admin" }
+                      }
+                    },
+                    "token": { "type": "string", "example": "1|abc123..." }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "description": "Credenciales incorrectas" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Cerrar sesión",
+        "description": "Invalida el token de acceso del usuario autenticado.",
+        "security": [{ "sanctum": [] }],
+        "responses": {
+          "200": {
+            "description": "Sesión cerrada correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Sesión cerrada correctamente." }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "No autenticado" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Autenticación"],
+        "summary": "Usuario autenticado",
+        "description": "Devuelve los datos del usuario que ha iniciado sesión.",
+        "security": [{ "sanctum": [] }],
+        "responses": {
+          "200": {
+            "description": "Datos del usuario autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "example": 1 },
+                    "name": { "type": "string", "example": "Admin" },
+                    "email": { "type": "string", "example": "admin@statushub.com" },
+                    "role": { "type": "string", "example": "admin" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "No autenticado" }
+        }
+      }
+    },
+    "/api/services": {
+      "get": {
+        "tags": ["Servicios"],
+        "summary": "Lista de servicios",
+        "description": "Devuelve la lista de todos los servicios con su estado actual.",
+        "responses": {
+          "200": {
+            "description": "Lista de servicios obtenida correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer", "example": 1 },
+                      "name": { "type": "string", "example": "API de Usuarios" },
+                      "slug": { "type": "string", "example": "api-usuarios" },
+                      "description": { "type": "string", "example": "Gestión de autenticación y perfiles de usuario." },
+                      "status": { "type": "string", "example": "operational" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/services/{service}": {
+      "get": {
+        "tags": ["Servicios"],
+        "summary": "Detalle de un servicio",
+        "description": "Devuelve los detalles de un servicio incluyendo sus incidentes activos.",
+        "parameters": [
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "description": "ID del servicio",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detalle del servicio obtenido correctamente" },
+          "404": { "description": "Servicio no encontrado" }
+        }
+      }
+    },
+    "/api/services/{service}/status": {
+      "put": {
+        "tags": ["Servicios"],
+        "summary": "Actualizar estado de un servicio",
+        "description": "Actualiza manualmente el estado de un servicio. Solo administradores.",
+        "security": [{ "sanctum": [] }],
+        "parameters": [
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "description": "ID del servicio",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["operational", "degraded", "partial_outage", "major_outage"],
+                    "example": "degraded"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Estado actualizado correctamente" },
+          "401": { "description": "No autenticado" },
+          "403": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/incidents": {
+      "get": {
+        "tags": ["Incidentes"],
+        "summary": "Lista de incidentes",
+        "description": "Devuelve la lista paginada de incidentes. Permite filtrar por servicio y estado.",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "query",
+            "required": false,
+            "description": "Filtrar por ID de servicio",
+            "schema": { "type": "integer", "example": 1 }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filtrar por estado",
+            "schema": {
+              "type": "string",
+              "enum": ["investigating", "identified", "monitoring", "resolved"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de incidentes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current_page": { "type": "integer", "example": 1 },
+                    "total": { "type": "integer", "example": 10 },
+                    "per_page": { "type": "integer", "example": 10 },
+                    "data": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Incidentes"],
+        "summary": "Crear un incidente",
+        "description": "Crea un nuevo incidente y actualiza el estado del servicio según el impacto. Solo administradores.",
+        "security": [{ "sanctum": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["service_id", "title", "impact", "status"],
+                "properties": {
+                  "service_id": { "type": "integer", "example": 1 },
+                  "title": { "type": "string", "example": "Latencia elevada en API de Usuarios" },
+                  "description": { "type": "string", "example": "Se detecta un aumento inusual en los tiempos de respuesta." },
+                  "impact": { "type": "string", "enum": ["minor", "major", "critical"], "example": "minor" },
+                  "status": { "type": "string", "enum": ["investigating", "identified", "monitoring", "resolved"], "example": "investigating" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Incidente creado correctamente" },
+          "401": { "description": "No autenticado" },
+          "403": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/incidents/{incident}": {
+      "get": {
+        "tags": ["Incidentes"],
+        "summary": "Detalle de un incidente",
+        "description": "Devuelve los detalles de un incidente incluyendo su servicio y actualizaciones.",
+        "parameters": [
+          {
+            "name": "incident",
+            "in": "path",
+            "required": true,
+            "description": "ID del incidente",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detalle del incidente obtenido correctamente" },
+          "404": { "description": "Incidente no encontrado" }
+        }
+      },
+      "put": {
+        "tags": ["Incidentes"],
+        "summary": "Actualizar un incidente",
+        "description": "Actualiza un incidente. Si se resuelve, restaura el servicio si no quedan incidentes activos. Solo administradores.",
+        "security": [{ "sanctum": [] }],
+        "parameters": [
+          {
+            "name": "incident",
+            "in": "path",
+            "required": true,
+            "description": "ID del incidente",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "title": { "type": "string", "example": "Latencia elevada en API de Usuarios" },
+                  "description": { "type": "string", "example": "Se detecta un aumento inusual en los tiempos de respuesta." },
+                  "impact": { "type": "string", "enum": ["minor", "major", "critical"] },
+                  "status": { "type": "string", "enum": ["investigating", "identified", "monitoring", "resolved"], "example": "resolved" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Incidente actualizado correctamente" },
+          "401": { "description": "No autenticado" },
+          "403": { "description": "No autorizado" }
+        }
+      },
+      "delete": {
+        "tags": ["Incidentes"],
+        "summary": "Eliminar un incidente",
+        "description": "Elimina un incidente y restaura el servicio si no quedan incidentes activos. Solo administradores.",
+        "security": [{ "sanctum": [] }],
+        "parameters": [
+          {
+            "name": "incident",
+            "in": "path",
+            "required": true,
+            "description": "ID del incidente",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incidente eliminado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Incidente eliminado correctamente." }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "No autenticado" },
+          "403": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/incidents/{incident}/updates": {
+      "get": {
+        "tags": ["Actualizaciones"],
+        "summary": "Lista de actualizaciones de un incidente",
+        "description": "Devuelve todas las actualizaciones de un incidente específico.",
+        "parameters": [
+          {
+            "name": "incident",
+            "in": "path",
+            "required": true,
+            "description": "ID del incidente",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Lista de actualizaciones obtenida correctamente" },
+          "404": { "description": "Incidente no encontrado" }
+        }
+      },
+      "post": {
+        "tags": ["Actualizaciones"],
+        "summary": "Añadir actualización a un incidente",
+        "description": "Crea una nueva actualización y sincroniza el estado del incidente. Solo administradores.",
+        "security": [{ "sanctum": [] }],
+        "parameters": [
+          {
+            "name": "incident",
+            "in": "path",
+            "required": true,
+            "description": "ID del incidente",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["message", "status"],
+                "properties": {
+                  "message": { "type": "string", "example": "Hemos identificado la causa raíz." },
+                  "status": { "type": "string", "enum": ["investigating", "identified", "monitoring", "resolved"], "example": "identified" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Actualización creada correctamente" },
+          "401": { "description": "No autenticado" },
+          "403": { "description": "No autorizado" }
+        }
+      }
+    },
+    "/api/subscriptions": {
+      "post": {
+        "tags": ["Suscripciones"],
+        "summary": "Crear suscripción",
+        "description": "Suscribe un email a las notificaciones de un servicio.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": ["service_id", "email"],
+                "properties": {
+                  "service_id": { "type": "integer", "example": 1 },
+                  "email": { "type": "string", "format": "email", "example": "test@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Suscripción creada correctamente" },
+          "409": { "description": "Ya existe una suscripción activa para este email y servicio" }
+        }
+      }
+    },
+    "/api/subscriptions/{token}": {
+      "delete": {
+        "tags": ["Suscripciones"],
+        "summary": "Cancelar suscripción",
+        "description": "Cancela una suscripción utilizando su token único.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Token único de la suscripción",
+            "schema": { "type": "string", "example": "YicWR5SiYfdf0FrkjuU1uFYDu2ZAmMbR" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suscripción cancelada correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Suscripción cancelada correctamente." }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Suscripción no encontrada" }
+        }
+      }
+    }
+  }
+}
