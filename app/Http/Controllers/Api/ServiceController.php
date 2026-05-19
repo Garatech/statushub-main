@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateServiceStatusRequest;
 use App\Models\Service;
+use App\Support\ServiceStatusPresenter;
 
 class ServiceController extends Controller
 {
@@ -32,9 +33,16 @@ class ServiceController extends Controller
      */
     public function index()
     {
-        $services = Service::all();
+        $services = Service::with([
+            'snapshots' => fn ($query) => $query
+                ->where('recorded_on', '>=', now()->subDays(29)->toDateString())
+                ->orderBy('recorded_on'),
+            'incidents' => fn ($query) => $query->orderBy('created_at', 'desc'),
+        ])->get();
 
-        return response()->json($services);
+        return response()->json(
+            $services->map(fn ($service) => ServiceStatusPresenter::presentService($service))->values()
+        );
     }
 
     /**
@@ -78,13 +86,17 @@ class ServiceController extends Controller
     public function show(Service $service)
     {
         $service->load([
+            'snapshots' => function ($query) {
+                $query->where('recorded_on', '>=', now()->subDays(29)->toDateString())
+                    ->orderBy('recorded_on');
+            },
             'incidents' => function ($query) {
-                $query->where('status', '!=', 'resolved')
-                      ->orderBy('created_at', 'desc');
-            }
+                $query->with('updates')
+                    ->orderBy('created_at', 'desc');
+            },
         ]);
 
-        return response()->json($service);
+        return response()->json(ServiceStatusPresenter::presentService($service));
     }
 
     /**

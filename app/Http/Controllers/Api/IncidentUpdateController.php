@@ -8,7 +8,6 @@ use App\Models\Incident;
 use App\Models\IncidentUpdate;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
 
 class IncidentUpdateController extends Controller
 {
@@ -35,22 +34,14 @@ class IncidentUpdateController extends Controller
      *     )
      * )
      */
-    public function index(Request $request)
+    public function index(Incident $incident)
     {
-        $query = Incident::with(['service', 'updates'])
-            ->orderBy('created_at', 'desc');
+        $updates = $incident->updates()
+            ->with('user')
+            ->orderBy('created_at', 'asc')
+            ->get();
 
-        if ($request->has('service_id')) {
-            $query->where('service_id', $request->service_id);
-        }
-
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        $incidents = $query->paginate(10);
-
-        return response()->json($incidents);
+        return response()->json($updates);
     }
 
     /**

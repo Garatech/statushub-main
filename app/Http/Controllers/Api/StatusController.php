@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Incident;
 use App\Models\Service;
+use App\Support\ServiceStatusPresenter;
 
 class StatusController extends Controller
 {
@@ -34,13 +35,18 @@ class StatusController extends Controller
      */
     public function index()
     {
-        $services = Service::all();
+        $services = Service::with([
+            'snapshots' => fn ($query) => $query
+                ->where('recorded_on', '>=', now()->subDays(29)->toDateString())
+                ->orderBy('recorded_on'),
+            'incidents' => fn ($query) => $query->orderBy('created_at', 'desc'),
+        ])->get();
 
-        $degradedCount  = $services->whereIn('status', ['degraded', 'partial_outage', 'major_outage'])->count();
+        $degradedCount  = $services->whereIn('status', ['degraded', 'partial_outage'])->count();
         $criticalCount  = $services->where('status', 'major_outage')->count();
 
         if ($criticalCount > 0) {
-            $globalStatus = 'major_outage';
+            $globalStatus = 'outage';
         } elseif ($degradedCount > 0) {
             $globalStatus = 'degraded';
         } else {
@@ -48,11 +54,15 @@ class StatusController extends Controller
         }
 
         $activeIncidents = Incident::where('status', '!=', 'resolved')->count();
+        $servicesPayload = $services
+            ->map(fn ($service) => ServiceStatusPresenter::presentService($service))
+            ->values();
 
         return response()->json([
             'global_status'    => $globalStatus,
             'active_incidents' => $activeIncidents,
-            'services'         => $services,
+            'metrics'          => ServiceStatusPresenter::presentGlobalMetrics($servicesPayload),
+            'services'         => $servicesPayload,
         ]);
     }
 }

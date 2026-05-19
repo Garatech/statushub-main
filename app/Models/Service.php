@@ -40,4 +40,9 @@ class Service extends Model
     {
         return $this->hasMany(Subscription::class);
     }
+
+    public function snapshots()
+    {
+        return $this->hasMany(ServiceStatusSnapshot::class);
+    }
 }
